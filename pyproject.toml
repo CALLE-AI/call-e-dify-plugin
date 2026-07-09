@@ -1,6 +1,6 @@
 [project]
 name = "call-e-dify-plugin"
-version = "0.1.6"
+version = "0.1.7"
 description = "CALL-E tools for Dify workflows and agents"
 readme = "README.md"
 requires-python = ">=3.12"
