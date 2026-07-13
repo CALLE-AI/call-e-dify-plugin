@@ -18,7 +18,10 @@ credentials_for_provider:
     placeholder:
       en_US: Enter your CALL-E API key
     help:
-      en_US: Used as a Bearer token for CALL-E API requests.
+      en_US: >-
+        Create an API key at https://dashboard.heycall-e.com/account/api-keys.
+        It is used as a Bearer token for CALL-E API requests. API reference:
+        https://docs.heycall-e.com/#/api-reference
   base_url:
     type: text-input
     required: true

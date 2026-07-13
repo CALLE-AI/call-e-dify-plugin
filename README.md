@@ -16,9 +16,10 @@ Phone calls are real-world side effects. Live calls require both `dry_run=false`
 
 - Python 3.12
 - Dify Plugin CLI
-- CALL-E API key
+- CALL-E API key ([create one in the CALL-E dashboard](https://dashboard.heycall-e.com/account/api-keys))
 
 Install the Dify Plugin CLI by following the official Dify plugin documentation.
+For request and response details, see the [CALL-E API reference](https://docs.heycall-e.com/#/api-reference).
 
 ## Provider Credentials
 
@@ -26,7 +27,7 @@ Configure these provider credentials in Dify:
 
 | Credential | Required | Description |
 | --- | --- | --- |
-| `api_key` | Yes | CALL-E API key. Stored as a secret input in Dify. |
+| `api_key` | Yes | CALL-E API key. [Create a key](https://dashboard.heycall-e.com/account/api-keys); it is stored as a secret input in Dify. |
 | `base_url` | Yes | CALL-E API base URL. Defaults to `https://api.heycall-e.com`. Do not include `/v1`. |
 
 When credentials are saved, the provider performs a non-mutating authentication probe:

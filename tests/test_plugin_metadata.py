@@ -1,4 +1,5 @@
 from pathlib import Path
+import tomllib
 
 import yaml
 
@@ -36,6 +37,28 @@ def test_readme_links_source_repository():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "https://github.com/CALLE-AI/call-e-dify-plugin" in readme
+
+
+def test_api_key_onboarding_links_are_user_visible():
+    provider = load_yaml("provider/call_e.yaml")
+    api_key_help = provider["credentials_for_provider"]["api_key"]["help"]["en_US"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for url in (
+        "https://dashboard.heycall-e.com/account/api-keys",
+        "https://docs.heycall-e.com/#/api-reference",
+    ):
+        assert url in api_key_help
+        assert url in readme
+
+
+def test_release_version_is_synchronized():
+    manifest = load_yaml("manifest.yaml")
+    with (ROOT / "pyproject.toml").open("rb") as pyproject_file:
+        pyproject = tomllib.load(pyproject_file)
+
+    assert manifest["version"] == "0.1.8"
+    assert pyproject["project"]["version"] == manifest["version"]
 
 
 def test_marketplace_runtime_dependencies_are_declared():
