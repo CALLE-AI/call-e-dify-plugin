@@ -46,7 +46,7 @@ def test_api_key_onboarding_links_are_user_visible():
 
     for url in (
         "https://dashboard.heycall-e.com/account/api-keys",
-        "https://docs.heycall-e.com/#/api-reference",
+        "https://test-docs.heycall-e.com/api-reference",
     ):
         assert url in api_key_help
         assert url in readme
@@ -66,3 +66,22 @@ def test_marketplace_runtime_dependencies_are_declared():
 
     assert "dify_plugin>=0.9.0" in requirements
     assert "requests>=2.32.0" in requirements
+
+
+def test_provider_registers_goal_and_goal_run_tools():
+    provider = load_yaml("provider/call_e.yaml")
+    assert set(provider["tools"]).issuperset(
+        {
+            "tools/list_goals.yaml",
+            "tools/get_goal.yaml",
+            "tools/create_goal_run.yaml",
+            "tools/get_goal_run.yaml",
+            "tools/create_goal_run_and_wait.yaml",
+        }
+    )
+
+    create_goal_run = load_yaml("tools/create_goal_run.yaml")
+    required_parameters = {
+        parameter["name"] for parameter in create_goal_run["parameters"] if parameter["required"]
+    }
+    assert {"goal_id", "phone_number", "idempotency_key"}.issubset(required_parameters)

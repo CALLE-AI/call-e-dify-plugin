@@ -1,0 +1,67 @@
+identity:
+  name: create_goal_run_and_wait
+  author: derekwang2002
+  label:
+    en_US: Create And Wait For CALL-E Goal Run
+description:
+  human:
+    en_US: Preview or create one CALL-E Goal Run, then wait for its structured result or final error.
+  llm: Preview or create and wait for one Goal Run. It polls until result or error is non-null, because completed alone can still mean result processing. Live calls require dry_run=false and confirm_live_call=true.
+parameters:
+  - name: goal_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Goal ID
+  - name: phone_number
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Phone Number
+  - name: idempotency_key
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Idempotency Key
+  - name: variables_json
+    type: string
+    required: false
+    form: llm
+    label:
+      en_US: Variables JSON
+  - name: dry_run
+    type: boolean
+    required: false
+    default: true
+    form: llm
+    label:
+      en_US: Dry Run
+  - name: confirm_live_call
+    type: boolean
+    required: false
+    default: false
+    form: llm
+    label:
+      en_US: Confirm Live Call
+  - name: poll_interval_seconds
+    type: number
+    required: false
+    default: 5
+    form: llm
+    label:
+      en_US: Poll Interval Seconds
+  - name: wait_timeout_minutes
+    type: number
+    required: false
+    default: 15
+    form: llm
+    label:
+      en_US: Wait Timeout Minutes
+extra:
+  python:
+    source: tools/create_goal_run_and_wait.py
+output_schema:
+  type: object

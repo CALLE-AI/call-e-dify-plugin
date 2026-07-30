@@ -9,6 +9,8 @@ This plugin exposes safe outbound phone-call tools for CALL-E:
 - `create_call` previews or creates one outbound CALL-E call.
 - `get_call` fetches one CALL-E call result by call ID.
 - `create_and_wait` previews or creates one outbound CALL-E call, then polls until the call reaches a terminal status or timeout.
+- `list_goals` and `get_goal` read published CALL-E Goals without starting a call.
+- `create_goal_run`, `get_goal_run`, and `create_goal_run_and_wait` execute and monitor one phone-specific published Goal.
 
 Phone calls are real-world side effects. Live calls require both `dry_run=false` and `confirm_live_call=true`.
 
@@ -19,7 +21,7 @@ Phone calls are real-world side effects. Live calls require both `dry_run=false`
 - CALL-E API key ([create one in the CALL-E dashboard](https://dashboard.heycall-e.com/account/api-keys))
 
 Install the Dify Plugin CLI by following the official Dify plugin documentation.
-For request and response details, see the [CALL-E API reference](https://docs.heycall-e.com/#/api-reference).
+For request and response details, see the [CALL-E API reference](https://test-docs.heycall-e.com/api-reference).
 
 ## Provider Credentials
 
@@ -56,6 +58,16 @@ Fetches one call result from `GET /v1/calls/{call_id}` and returns masked, parse
 ### create_and_wait
 
 Creates one call, then polls until a terminal status or timeout. This is the most convenient tool for Dify workflows that need one final result object.
+
+### Goal tools
+
+`list_goals` and `get_goal` read the published Goal catalog. They do not create a call.
+
+`create_goal_run` runs one published Goal for one E.164 recipient. It accepts only the documented Goal Run body: `phone_number` and an optional flat `variables_json` object containing finite strings, numbers, or booleans. It requires a durable, business-stable `idempotency_key`; reuse that exact key and request when retrying a network failure.
+
+`create_goal_run_and_wait` polls until the API returns a non-null `result` or a non-null `error`. A Goal Run with `status=completed` and both fields null is still processing. A tool timeout does not cancel the provider-side run: use `get_goal_run` with the returned ID instead of creating a duplicate.
+
+Goal Run tools follow the same live-call boundary as Call tools: live execution requires both `dry_run=false` and `confirm_live_call=true`.
 
 ## Safety Defaults
 

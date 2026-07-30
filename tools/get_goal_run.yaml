@@ -1,0 +1,27 @@
+identity:
+  name: get_goal_run
+  author: derekwang2002
+  label:
+    en_US: Get CALL-E Goal Run
+description:
+  human:
+    en_US: Fetch one CALL-E Goal Run and its current structured result or final error.
+  llm: Read a Goal Run using GET /v1/goals/{goal_id}/runs/{goal_run_id}. A completed status without result or error can still be processing.
+parameters:
+  - name: goal_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Goal ID
+  - name: goal_run_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Goal Run ID
+extra:
+  python:
+    source: tools/get_goal_run.py
+output_schema:
+  type: object

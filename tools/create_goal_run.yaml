@@ -1,0 +1,56 @@
+identity:
+  name: create_goal_run
+  author: derekwang2002
+  label:
+    en_US: Create CALL-E Goal Run
+description:
+  human:
+    en_US: Preview or create one phone-specific execution of a published CALL-E Goal.
+  llm: Preview or create one Goal Run. It can make a phone call only with dry_run=false and confirm_live_call=true. Reuse the same idempotency key when retrying the same business event.
+parameters:
+  - name: goal_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Goal ID
+  - name: phone_number
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Phone Number
+    llm_description: Authorized recipient phone number in E.164 format, for example +14155550123.
+  - name: idempotency_key
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Idempotency Key
+    llm_description: Durable business key for one logical Goal Run. Reuse it only for retries of the exact same request.
+  - name: variables_json
+    type: string
+    required: false
+    form: llm
+    label:
+      en_US: Variables JSON
+    llm_description: Optional flat JSON object of finite string, number, or boolean Goal variables.
+  - name: dry_run
+    type: boolean
+    required: false
+    default: true
+    form: llm
+    label:
+      en_US: Dry Run
+  - name: confirm_live_call
+    type: boolean
+    required: false
+    default: false
+    form: llm
+    label:
+      en_US: Confirm Live Call
+extra:
+  python:
+    source: tools/create_goal_run.py
+output_schema:
+  type: object

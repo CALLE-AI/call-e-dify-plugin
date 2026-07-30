@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -69,6 +71,18 @@ def parse_json_object(value: Any, *, field_name: str) -> dict[str, Any]:
     raise ValueError(f"{field_name} must be a JSON object.")
 
 
+def parse_goal_run_variables(value: Any, *, field_name: str) -> dict[str, str | bool | int | float]:
+    variables = parse_json_object(value, field_name=field_name)
+    for key, item in variables.items():
+        valid_scalar = isinstance(item, (str, bool, int, float))
+        finite_number = not isinstance(item, float) or math.isfinite(item)
+        if not valid_scalar or not finite_number:
+            raise ValueError(
+                f"{field_name}.{key} must be a finite string, boolean, or number."
+            )
+    return variables
+
+
 def mask_phone(phone: Any) -> str:
     value = str(phone or "").strip()
     if not value:
@@ -83,6 +97,20 @@ def validate_e164(phone: Any) -> str:
     if not E164_RE.match(value):
         raise ValueError("phone_number must be in E.164 format, for example +15555550123.")
     return value
+
+
+def build_goal_run_payload(
+    phone_number: str,
+    variables: dict[str, str | bool | int | float],
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"phone_number": validate_e164(phone_number)}
+    if variables:
+        payload["variables"] = variables
+    return payload
+
+
+def is_goal_run_resolved(goal_run: dict[str, Any]) -> bool:
+    return goal_run.get("result") is not None or goal_run.get("error") is not None
 
 
 def ensure_live_phone_allowed(phone: str) -> None:
@@ -294,16 +322,26 @@ class CalleClient:
             headers["Idempotency-Key"] = idempotency_key
         return headers
 
-    def _request(self, method: str, path: str, *, json_body: dict[str, Any] | None = None, timeout: int = 30) -> dict[str, Any]:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+        timeout: int = 30,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
+        request_kwargs: dict[str, Any] = {
+            "headers": self._headers(idempotency_key=idempotency_key),
+            "json": json_body,
+            "timeout": timeout,
+        }
+        if query:
+            request_kwargs["params"] = query
         try:
-            response = requests.request(
-                method,
-                url,
-                headers=self._headers(),
-                json=json_body,
-                timeout=timeout,
-            )
+            response = requests.request(method, url, **request_kwargs)
         except requests.RequestException as error:
             raise CalleApiError(f"CALL-E API request failed: {error}") from error
 
@@ -416,6 +454,67 @@ class CalleClient:
             raise CalleApiError("call_id is required.")
         return self._request("GET", f"/v1/calls/{call_id}", timeout=60)
 
+    def list_goals(self, *, cursor: str | None = None, limit: int | None = None) -> dict[str, Any]:
+        query: dict[str, Any] = {}
+        if cursor:
+            query["cursor"] = str(cursor).strip()
+        if limit is not None:
+            query["limit"] = int(limit)
+        return self._request("GET", "/v1/goals", query=query, timeout=60)
+
+    def get_goal(self, goal_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/v1/goals/{_path_identifier(goal_id, 'goal_id')}", timeout=60)
+
+    def create_goal_run(
+        self,
+        goal_id: str,
+        payload: dict[str, Any],
+        *,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        stable_key = _required_idempotency_key(idempotency_key)
+        return self._request(
+            "POST",
+            f"/v1/goals/{_path_identifier(goal_id, 'goal_id')}/runs",
+            json_body=payload,
+            idempotency_key=stable_key,
+            timeout=60,
+        )
+
+    def get_goal_run(self, goal_id: str, goal_run_id: str) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            f"/v1/goals/{_path_identifier(goal_id, 'goal_id')}/runs/"
+            f"{_path_identifier(goal_run_id, 'goal_run_id')}",
+            timeout=60,
+        )
+
+    def create_goal_run_and_wait(
+        self,
+        goal_id: str,
+        payload: dict[str, Any],
+        idempotency_key: str,
+        *,
+        poll_interval_seconds: int,
+        wait_timeout_seconds: int,
+    ) -> tuple[dict[str, Any], int, bool]:
+        goal_run = self.create_goal_run(goal_id, payload, idempotency_key=idempotency_key)
+        goal_run_id = _goal_run_id(goal_run)
+        poll_count = 0
+        started = time.monotonic()
+        latest_goal_run = goal_run
+
+        while not is_goal_run_resolved(latest_goal_run):
+            if time.monotonic() - started >= wait_timeout_seconds:
+                latest_goal_run = dict(latest_goal_run)
+                latest_goal_run["_dify_poll_timeout"] = True
+                return latest_goal_run, poll_count, True
+            time.sleep(max(1, poll_interval_seconds))
+            poll_count += 1
+            latest_goal_run = self.get_goal_run(goal_id, goal_run_id)
+
+        return latest_goal_run, poll_count, False
+
     def create_and_wait(
         self,
         payload: dict[str, Any],
@@ -447,3 +546,24 @@ class CalleClient:
 
 def new_idempotency_key(prefix: str = "dify") -> str:
     return f"{prefix}_{uuid.uuid4().hex}"
+
+
+def _path_identifier(value: Any, field_name: str) -> str:
+    identifier = str(value or "").strip()
+    if not identifier:
+        raise CalleApiError(f"{field_name} is required.")
+    return quote(identifier, safe="")
+
+
+def _required_idempotency_key(value: Any) -> str:
+    key = str(value or "").strip()
+    if not key:
+        raise CalleApiError("idempotency_key is required for Goal Run creation.")
+    return key
+
+
+def _goal_run_id(goal_run: dict[str, Any]) -> str:
+    for candidate in (goal_run.get("id"), goal_run.get("goal_run_id"), as_object(goal_run.get("data")).get("id")):
+        if candidate not in (None, ""):
+            return str(candidate)
+    raise CalleApiError("CALL-E Goal Run create response did not include an id.")
