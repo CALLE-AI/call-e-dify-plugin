@@ -1,0 +1,29 @@
+identity:
+  name: list_goals
+  author: derekwang2002
+  label:
+    en_US: List CALL-E Goals
+description:
+  human:
+    en_US: List published CALL-E Goals available to this API key.
+  llm: Read CALL-E Goals using GET /v1/goals. This operation does not create a phone call.
+parameters:
+  - name: cursor
+    type: string
+    required: false
+    form: llm
+    label:
+      en_US: Cursor
+  - name: limit
+    type: number
+    required: false
+    default: 50
+    form: llm
+    label:
+      en_US: Limit
+    llm_description: Page size from 1 to 100.
+extra:
+  python:
+    source: tools/list_goals.py
+output_schema:
+  type: object

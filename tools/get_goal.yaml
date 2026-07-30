@@ -1,0 +1,21 @@
+identity:
+  name: get_goal
+  author: derekwang2002
+  label:
+    en_US: Get CALL-E Goal
+description:
+  human:
+    en_US: Fetch one published CALL-E Goal by ID.
+  llm: Read one CALL-E Goal using GET /v1/goals/{goal_id}. This operation does not create a phone call.
+parameters:
+  - name: goal_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Goal ID
+extra:
+  python:
+    source: tools/get_goal.py
+output_schema:
+  type: object
