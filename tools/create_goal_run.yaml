@@ -14,12 +14,16 @@ parameters:
     form: llm
     label:
       en_US: Goal ID
+    human_description:
+      en_US: ID of the published CALL-E Goal to run.
   - name: phone_number
     type: string
     required: true
     form: llm
     label:
       en_US: Phone Number
+    human_description:
+      en_US: Authorized recipient phone number in E.164 format.
     llm_description: Authorized recipient phone number in E.164 format, for example +14155550123.
   - name: idempotency_key
     type: string
@@ -27,6 +31,8 @@ parameters:
     form: llm
     label:
       en_US: Idempotency Key
+    human_description:
+      en_US: Stable key for one logical Goal Run; reuse it only when retrying the same request.
     llm_description: Durable business key for one logical Goal Run. Reuse it only for retries of the exact same request.
   - name: variables_json
     type: string
@@ -34,6 +40,8 @@ parameters:
     form: llm
     label:
       en_US: Variables JSON
+    human_description:
+      en_US: Optional flat JSON object containing string, number, or boolean Goal variables.
     llm_description: Optional flat JSON object of finite string, number, or boolean Goal variables.
   - name: dry_run
     type: boolean
@@ -42,6 +50,8 @@ parameters:
     form: llm
     label:
       en_US: Dry Run
+    human_description:
+      en_US: When true, validates and previews the request without creating a Goal Run.
   - name: confirm_live_call
     type: boolean
     required: false
@@ -49,6 +59,8 @@ parameters:
     form: llm
     label:
       en_US: Confirm Live Call
+    human_description:
+      en_US: Must be true with Dry Run disabled before a Goal Run can create a live phone call.
 extra:
   python:
     source: tools/create_goal_run.py

@@ -14,6 +14,8 @@ parameters:
     form: llm
     label:
       en_US: Goal ID
+    human_description:
+      en_US: ID of the published CALL-E Goal to retrieve.
 extra:
   python:
     source: tools/get_goal.py

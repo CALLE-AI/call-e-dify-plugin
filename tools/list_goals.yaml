@@ -14,6 +14,8 @@ parameters:
     form: llm
     label:
       en_US: Cursor
+    human_description:
+      en_US: Pagination cursor returned by a previous List CALL-E Goals response.
   - name: limit
     type: number
     required: false
@@ -21,6 +23,8 @@ parameters:
     form: llm
     label:
       en_US: Limit
+    human_description:
+      en_US: Maximum number of Goals to return, from 1 to 100.
     llm_description: Page size from 1 to 100.
 extra:
   python:

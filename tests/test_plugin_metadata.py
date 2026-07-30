@@ -85,3 +85,13 @@ def test_provider_registers_goal_and_goal_run_tools():
         parameter["name"] for parameter in create_goal_run["parameters"] if parameter["required"]
     }
     assert {"goal_id", "phone_number", "idempotency_key"}.issubset(required_parameters)
+
+
+def test_tool_parameters_have_human_descriptions():
+    provider = load_yaml("provider/call_e.yaml")
+
+    for tool_path in provider["tools"]:
+        tool = load_yaml(tool_path)
+        for parameter in tool.get("parameters", []):
+            description = parameter.get("human_description", {}).get("en_US", "")
+            assert description.strip(), f"{tool_path}:{parameter['name']} needs a human description"

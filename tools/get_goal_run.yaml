@@ -14,12 +14,16 @@ parameters:
     form: llm
     label:
       en_US: Goal ID
+    human_description:
+      en_US: ID of the published CALL-E Goal that owns this Goal Run.
   - name: goal_run_id
     type: string
     required: true
     form: llm
     label:
       en_US: Goal Run ID
+    human_description:
+      en_US: ID of the CALL-E Goal Run to retrieve.
 extra:
   python:
     source: tools/get_goal_run.py

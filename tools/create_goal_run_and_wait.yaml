@@ -14,24 +14,32 @@ parameters:
     form: llm
     label:
       en_US: Goal ID
+    human_description:
+      en_US: ID of the published CALL-E Goal to run.
   - name: phone_number
     type: string
     required: true
     form: llm
     label:
       en_US: Phone Number
+    human_description:
+      en_US: Authorized recipient phone number in E.164 format.
   - name: idempotency_key
     type: string
     required: true
     form: llm
     label:
       en_US: Idempotency Key
+    human_description:
+      en_US: Stable key for one logical Goal Run; reuse it only when retrying the same request.
   - name: variables_json
     type: string
     required: false
     form: llm
     label:
       en_US: Variables JSON
+    human_description:
+      en_US: Optional flat JSON object containing string, number, or boolean Goal variables.
   - name: dry_run
     type: boolean
     required: false
@@ -39,6 +47,8 @@ parameters:
     form: llm
     label:
       en_US: Dry Run
+    human_description:
+      en_US: When true, validates and previews the request without creating a Goal Run.
   - name: confirm_live_call
     type: boolean
     required: false
@@ -46,6 +56,8 @@ parameters:
     form: llm
     label:
       en_US: Confirm Live Call
+    human_description:
+      en_US: Must be true with Dry Run disabled before a Goal Run can create a live phone call.
   - name: poll_interval_seconds
     type: number
     required: false
@@ -53,6 +65,8 @@ parameters:
     form: llm
     label:
       en_US: Poll Interval Seconds
+    human_description:
+      en_US: Number of seconds to wait between Goal Run status checks.
   - name: wait_timeout_minutes
     type: number
     required: false
@@ -60,6 +74,8 @@ parameters:
     form: llm
     label:
       en_US: Wait Timeout Minutes
+    human_description:
+      en_US: Maximum number of minutes to wait for a Goal Run result or error.
 extra:
   python:
     source: tools/create_goal_run_and_wait.py
