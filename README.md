@@ -21,7 +21,7 @@ Phone calls are real-world side effects. Live calls require both `dry_run=false`
 - CALL-E API key ([create one in the CALL-E dashboard](https://dashboard.heycall-e.com/account/api-keys))
 
 Install the Dify Plugin CLI by following the official Dify plugin documentation.
-For request and response details, see the [CALL-E API reference](https://test-docs.heycall-e.com/api-reference).
+For request and response details, see the [CALL-E API reference](https://docs.heycall-e.com/api-reference).
 
 ## Provider Credentials
 
