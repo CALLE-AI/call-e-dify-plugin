@@ -46,7 +46,7 @@ def test_api_key_onboarding_links_are_user_visible():
 
     for url in (
         "https://dashboard.heycall-e.com/account/api-keys",
-        "https://test-docs.heycall-e.com/api-reference",
+        "https://docs.heycall-e.com/api-reference",
     ):
         assert url in api_key_help
         assert url in readme

@@ -21,7 +21,7 @@ credentials_for_provider:
       en_US: >-
         Create an API key at https://dashboard.heycall-e.com/account/api-keys.
         It is used as a Bearer token for CALL-E API requests. API reference:
-        https://test-docs.heycall-e.com/api-reference
+        https://docs.heycall-e.com/api-reference
   base_url:
     type: text-input
     required: true
