@@ -1,7 +1,9 @@
-version: 0.2.1
+version: 0.2.2
 type: plugin
 author: derekwang2002
 name: call_e
+repo: https://github.com/CALLE-AI/call-e-dify-plugin
+contact: support@heycall-e.com
 label:
   en_US: CALL-E
 description:
