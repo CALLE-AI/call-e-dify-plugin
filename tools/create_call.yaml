@@ -36,6 +36,15 @@ parameters:
     human_description:
       en_US: When true, returns a masked preview without creating a call.
     llm_description: Set to false only when the user explicitly wants one live call.
+  - name: idempotency_key
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Idempotency Key
+    human_description:
+      en_US: Stable business key for this call, saved before submission.
+    llm_description: Required 1-255 printable ASCII characters. Reuse the exact key and unchanged inputs after a timeout. Never generate a new key to retry the same call.
   - name: confirm_live_call
     type: boolean
     required: false
@@ -49,23 +58,21 @@ parameters:
   - name: region
     type: string
     required: false
-    default: US
     form: llm
     label:
       en_US: Region
     human_description:
-      en_US: Region hint for CALL-E.
-    llm_description: Region hint, for example US or BR.
+      en_US: Optional region hint. CALL-E infers it from the phone when omitted.
+    llm_description: Optional region hint, for example US or BR. Omit to infer from the phone.
   - name: locale
     type: string
     required: false
-    default: en-US
     form: llm
     label:
       en_US: Locale
     human_description:
-      en_US: Locale hint for CALL-E.
-    llm_description: Locale hint, for example en-US or pt-BR.
+      en_US: Optional spoken language. CALL-E infers it from the task when omitted.
+    llm_description: Optional locale hint, for example en-US or pt-BR. Omit to infer from the task.
   - name: metadata_json
     type: string
     required: false
@@ -89,5 +96,14 @@ output_schema:
       type: string
     call_id:
       type: string
+    idempotency_key:
+      type: string
     result:
       type: object
+      properties:
+        call_id:
+          type: string
+        result_status:
+          type: string
+        summary:
+          type: [string, "null"]

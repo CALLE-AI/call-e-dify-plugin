@@ -57,7 +57,7 @@ def test_release_version_is_synchronized():
     with (ROOT / "pyproject.toml").open("rb") as pyproject_file:
         pyproject = tomllib.load(pyproject_file)
 
-    assert manifest["version"] == "0.1.9"
+    assert manifest["version"] == "0.2.0"
     assert pyproject["project"]["version"] == manifest["version"]
 
 
@@ -85,3 +85,11 @@ def test_provider_registers_goal_and_goal_run_tools():
         parameter["name"] for parameter in create_goal_run["parameters"] if parameter["required"]
     }
     assert {"goal_id", "phone_number", "idempotency_key"}.issubset(required_parameters)
+
+
+def test_named_object_outputs_have_properties_so_dify_does_not_match_them_as_files():
+    for path in ("tools/create_call.yaml", "tools/create_and_wait.yaml", "tools/get_call.yaml"):
+        for name, schema in load_yaml(path)["output_schema"]["properties"].items():
+            types = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
+            if "object" in types:
+                assert schema.get("properties"), f"{path}.{name} needs named properties for Dify's type matcher"

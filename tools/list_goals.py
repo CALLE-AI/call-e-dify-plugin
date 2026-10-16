@@ -22,8 +22,8 @@ class ListGoalsTool(Tool):
                 api_key=credentials.get("api_key"),
                 base_url=normalize_base_url(credentials.get("base_url")),
             )
-            cursor = str(tool_parameters.get("cursor") or "").strip() or None
-            response = client.list_goals(cursor=cursor, limit=_bounded_limit(tool_parameters.get("limit")))
+            after = str(tool_parameters.get("after") or "").strip() or None
+            response = client.list_goals(after=after, limit=_bounded_limit(tool_parameters.get("limit")))
             yield self.create_json_message(response)
         except CalleApiError as error:
             yield self.create_text_message(str(error))

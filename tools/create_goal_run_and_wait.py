@@ -8,12 +8,14 @@ from utils.client import (
     CalleApiError,
     CalleClient,
     build_goal_run_payload,
+    creation_error_result,
     ensure_live_phone_allowed,
     mask_phone,
     normalize_base_url,
     parse_bool,
     parse_goal_run_variables,
     redact_phone_fields,
+    required_idempotency_key,
     validate_e164,
 )
 
@@ -28,15 +30,16 @@ def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int
 
 class CreateGoalRunAndWaitTool(Tool):
     def _invoke(self, tool_parameters: dict[str, Any]) -> Generator[ToolInvokeMessage, None, None]:
+        idempotency_key = ""
         try:
             goal_id = str(tool_parameters.get("goal_id") or "").strip()
-            idempotency_key = str(tool_parameters.get("idempotency_key") or "").strip()
+            idempotency_key = required_idempotency_key(tool_parameters.get("idempotency_key"))
             phone_number = validate_e164(tool_parameters.get("phone_number"))
             variables = parse_goal_run_variables(
                 tool_parameters.get("variables_json"), field_name="variables_json"
             )
-            if not goal_id or not idempotency_key:
-                yield self.create_text_message("goal_id and idempotency_key are required for Goal Run creation.")
+            if not goal_id:
+                yield self.create_text_message("goal_id is required for Goal Run creation.")
                 return
 
             poll_interval_seconds = _bounded_int(
@@ -87,8 +90,11 @@ class CreateGoalRunAndWaitTool(Tool):
                 "goal_run_id": goal_run.get("id"),
                 "poll_count": poll_count,
                 "timed_out": timed_out,
-                "result": goal_run.get("result"),
-                "error": goal_run.get("error"),
+                "result_status": goal_run.get("result_status"),
+                "call_outcome": goal_run.get("call_outcome"),
+                "transcript": redact_phone_fields(goal_run.get("transcript", [])),
+                "result": redact_phone_fields(goal_run.get("result")),
+                "error": redact_phone_fields(goal_run.get("error")),
                 "goal_run": redact_phone_fields(goal_run),
             }
             if timed_out:
@@ -96,5 +102,8 @@ class CreateGoalRunAndWaitTool(Tool):
                     "CALL-E Goal Run polling timed out. Use get_goal_run with the returned goal_run_id; do not create a duplicate Run."
                 )
             yield self.create_json_message(result)
-        except (ValueError, CalleApiError) as error:
+        except CalleApiError as error:
+            yield self.create_text_message(str(error))
+            yield self.create_json_message(creation_error_result(error, idempotency_key))
+        except ValueError as error:
             yield self.create_text_message(str(error))

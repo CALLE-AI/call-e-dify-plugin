@@ -8,16 +8,19 @@ from utils.client import (
     CalleApiError,
     CalleClient,
     build_create_payload,
+    creation_error_result,
     ensure_live_phone_allowed,
     extract_call_id,
     mask_phone,
-    new_idempotency_key,
     normalize_base_url,
     parse_bool,
     parse_call_result,
     parse_json_object,
+    redact_phone_fields,
+    required_idempotency_key,
     validate_e164,
 )
+from utils.messages import result_messages
 
 
 def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int:
@@ -30,7 +33,9 @@ def _bounded_int(value: Any, *, default: int, minimum: int, maximum: int) -> int
 
 class CreateAndWaitTool(Tool):
     def _invoke(self, tool_parameters: dict[str, Any]) -> Generator[ToolInvokeMessage, None, None]:
+        idempotency_key = ""
         try:
+            idempotency_key = required_idempotency_key(tool_parameters.get("idempotency_key"))
             phone_number = validate_e164(tool_parameters.get("phone_number"))
             task = str(tool_parameters.get("task") or "").strip()
             if not task:
@@ -40,8 +45,8 @@ class CreateAndWaitTool(Tool):
             dry_run = parse_bool(tool_parameters.get("dry_run"), default=True)
             confirm_live_call = parse_bool(tool_parameters.get("confirm_live_call"), default=False)
             metadata = parse_json_object(tool_parameters.get("metadata_json"), field_name="metadata_json")
-            region = str(tool_parameters.get("region") or "US").strip()
-            locale = str(tool_parameters.get("locale") or "en-US").strip()
+            region = str(tool_parameters.get("region") or "").strip()
+            locale = str(tool_parameters.get("locale") or "").strip()
             poll_interval_seconds = _bounded_int(
                 tool_parameters.get("poll_interval_seconds"), default=5, minimum=1, maximum=60
             )
@@ -60,10 +65,11 @@ class CreateAndWaitTool(Tool):
                 "live_call_created": False,
                 "will_create_live_call": (not dry_run) and confirm_live_call,
                 "masked_phone": mask_phone(phone_number),
+                "idempotency_key": idempotency_key,
                 "region": region,
                 "locale": locale,
                 "task": task,
-                "metadata": payload["metadata"],
+                "metadata": redact_phone_fields(payload["metadata"]),
                 "poll_interval_seconds": poll_interval_seconds,
                 "wait_timeout_minutes": wait_timeout_minutes,
             }
@@ -73,7 +79,7 @@ class CreateAndWaitTool(Tool):
                     "Dry run preview only. No live CALL-E call was created. "
                     "Set dry_run=false and confirm_live_call=true to create and wait for one live call."
                 )
-                yield self.create_json_message(preview)
+                yield from result_messages(self, preview)
                 return
 
             ensure_live_phone_allowed(phone_number)
@@ -82,7 +88,6 @@ class CreateAndWaitTool(Tool):
                 api_key=credentials.get("api_key"),
                 base_url=normalize_base_url(credentials.get("base_url")),
             )
-            idempotency_key = new_idempotency_key("dify_create_and_wait")
             call, poll_count, timed_out = client.create_and_wait(
                 payload,
                 poll_interval_seconds=poll_interval_seconds,
@@ -103,11 +108,19 @@ class CreateAndWaitTool(Tool):
             }
 
             status = parsed.get("call_status") or "unknown"
-            yield self.create_text_message(
-                f"CALL-E call completed polling. Call ID: {call_id or 'unknown'}. Status: {status}."
-            )
-            yield self.create_json_message(result)
-        except (ValueError, CalleApiError) as error:
+            if timed_out:
+                yield self.create_text_message(
+                    f"CALL-E polling timed out. Call ID: {call_id}. Use get_call to resume; do not create a replacement call."
+                )
+            else:
+                yield self.create_text_message(
+                    f"CALL-E call result ready. Call ID: {call_id}. Status: {status}. Result status: {parsed.get('result_status')}."
+                )
+            yield from result_messages(self, result)
+        except CalleApiError as error:
+            yield self.create_text_message(str(error))
+            yield from result_messages(self, creation_error_result(error, idempotency_key))
+        except ValueError as error:
             yield self.create_text_message(str(error))
         except Exception as error:
             yield self.create_text_message(f"Unexpected CALL-E create_and_wait error: {error}")

@@ -8,12 +8,15 @@ description:
     en_US: List published CALL-E Goals available to this API key.
   llm: Read CALL-E Goals using GET /v1/goals. This operation does not create a phone call.
 parameters:
-  - name: cursor
+  - name: after
     type: string
     required: false
     form: llm
     label:
-      en_US: Cursor
+      en_US: After
+    human_description:
+      en_US: Opaque next_cursor from the previous page, passed unchanged.
+    llm_description: Pass the previous next_cursor unchanged as after. Do not construct a cursor from a Goal ID.
   - name: limit
     type: number
     required: false
@@ -21,6 +24,8 @@ parameters:
     form: llm
     label:
       en_US: Limit
+    human_description:
+      en_US: Page size from 1 to 100.
     llm_description: Page size from 1 to 100.
 extra:
   python:
