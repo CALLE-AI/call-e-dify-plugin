@@ -30,7 +30,7 @@ credentials_for_provider:
     placeholder:
       en_US: https://api.heycall-e.com
     help:
-      en_US: CALL-E API host only. Do not include /v1.
+      en_US: CALL-E API host only. Do not include /v1 or /v2.
     default: https://api.heycall-e.com
 tools:
   - tools/create_call.yaml

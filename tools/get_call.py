@@ -5,6 +5,7 @@ from dify_plugin import Tool
 from dify_plugin.entities.tool import ToolInvokeMessage
 
 from utils.client import CalleApiError, CalleClient, normalize_base_url, parse_call_result
+from utils.messages import result_messages
 
 
 class GetCallTool(Tool):
@@ -25,7 +26,7 @@ class GetCallTool(Tool):
             yield self.create_text_message(
                 f"CALL-E call fetched. Status: {parsed.get('call_status') or 'unknown'}."
             )
-            yield self.create_json_message(parsed)
+            yield from result_messages(self, parsed)
         except CalleApiError as error:
             yield self.create_text_message(str(error))
         except Exception as error:

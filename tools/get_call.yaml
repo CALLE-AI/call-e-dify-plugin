@@ -5,8 +5,8 @@ identity:
     en_US: Get CALL-E Call
 description:
   human:
-    en_US: Fetch one CALL-E call by call ID.
-  llm: Fetch one CALL-E call by call ID and return parsed status, summary, transcript, metadata, and redacted raw result fields.
+    en_US: Fetch one Calls API v2 resource by its API ID.
+  llm: Fetch GET /v2/calls/{id} and return result_status, call_outcome, result, error, transcript, metadata, and redacted raw fields. Use the API resource ID, not the Billing call ID. Legacy IDs require the original interface.
 parameters:
   - name: call_id
     type: string
@@ -15,8 +15,8 @@ parameters:
     label:
       en_US: Call ID
     human_description:
-      en_US: CALL-E call ID returned by create_call or create_and_wait.
-    llm_description: CALL-E call ID returned by create_call or create_and_wait.
+      en_US: API resource ID returned as call_id by this plugin's create tools, not the Billing ID.
+    llm_description: API resource ID returned as call_id by create_call or create_and_wait. Do not use billing_call_id or a legacy v1 ID.
 extra:
   python:
     source: tools/get_call.py
@@ -27,13 +27,32 @@ output_schema:
       type: string
     call_status:
       type: string
-    recipient_status:
+    billing_call_id:
+      type: [string, "null"]
+    call_outcome:
+      type: [string, "null"]
+    result_status:
       type: string
-    latest_attempt_status:
-      type: string
+    error:
+      type: [object, "null"]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
     summary:
-      type: string
+      type: [string, "null"]
     transcript:
       type: array
-    structured_result:
-      type: object
+    structured_result: &business_result
+      type: [object, "null"]
+      properties:
+        summary:
+          type: string
+        call_completed:
+          type: string
+        outcome:
+          type: string
+        next_action:
+          type: string
+    result: *business_result

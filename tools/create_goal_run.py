@@ -8,21 +8,24 @@ from utils.client import (
     CalleApiError,
     CalleClient,
     build_goal_run_payload,
+    creation_error_result,
     ensure_live_phone_allowed,
     mask_phone,
     normalize_base_url,
     parse_bool,
     parse_goal_run_variables,
     redact_phone_fields,
+    required_idempotency_key,
     validate_e164,
 )
 
 
 class CreateGoalRunTool(Tool):
     def _invoke(self, tool_parameters: dict[str, Any]) -> Generator[ToolInvokeMessage, None, None]:
+        idempotency_key = ""
         try:
             goal_id = str(tool_parameters.get("goal_id") or "").strip()
-            idempotency_key = str(tool_parameters.get("idempotency_key") or "").strip()
+            idempotency_key = required_idempotency_key(tool_parameters.get("idempotency_key"))
             phone_number = validate_e164(tool_parameters.get("phone_number"))
             variables = parse_goal_run_variables(
                 tool_parameters.get("variables_json"), field_name="variables_json"
@@ -30,10 +33,6 @@ class CreateGoalRunTool(Tool):
             if not goal_id:
                 yield self.create_text_message("goal_id is required.")
                 return
-            if not idempotency_key:
-                yield self.create_text_message("idempotency_key is required for Goal Run creation.")
-                return
-
             dry_run = parse_bool(tool_parameters.get("dry_run"), default=True)
             confirm_live_call = parse_bool(tool_parameters.get("confirm_live_call"), default=False)
             payload = build_goal_run_payload(phone_number, variables)
@@ -70,5 +69,8 @@ class CreateGoalRunTool(Tool):
                     "goal_run": redact_phone_fields(goal_run),
                 }
             )
-        except (ValueError, CalleApiError) as error:
+        except CalleApiError as error:
+            yield self.create_text_message(str(error))
+            yield self.create_json_message(creation_error_result(error, idempotency_key))
+        except ValueError as error:
             yield self.create_text_message(str(error))
