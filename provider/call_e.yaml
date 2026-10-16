@@ -4,7 +4,7 @@ identity:
   label:
     en_US: CALL-E
   description:
-    en_US: Create, fetch, and wait for CALL-E outbound phone calls.
+    en_US: Create, fetch, and wait for CALL-E outbound phone calls. Maintained by J.Jason (@JJasonSun).
   icon: icon.svg
   tags:
     - productivity
