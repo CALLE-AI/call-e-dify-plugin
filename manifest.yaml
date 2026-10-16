@@ -1,11 +1,11 @@
-version: 0.2.0
+version: 0.2.1
 type: plugin
 author: derekwang2002
 name: call_e
 label:
   en_US: CALL-E
 description:
-  en_US: Create, fetch, and wait for CALL-E outbound phone calls from Dify workflows and agents.
+  en_US: Create, fetch, and wait for CALL-E outbound phone calls from Dify workflows and agents. Maintained by J.Jason (@JJasonSun).
 icon: icon.svg
 created_at: "2026-07-06T00:00:00Z"
 resource:
