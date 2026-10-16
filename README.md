@@ -91,9 +91,11 @@ Version 0.2.0 moves new Calls to v2. Before upgrading a workflow:
 4. Rename `list_goals.cursor` to `after`. Goal endpoints remain `/v1/goals/...`.
 5. Keep historical v1 Call IDs with the original plugin/API interface. Reading an old ID through v2 does not migrate it. Do not create a replacement because an old ID cannot be read.
 
-In Dify, open the CALL-E node and bind **Idempotency Key** to an upstream field saved with your order or CRM event, such as `call_request_id`. For order 8472's first confirmation call, store `order-8472-confirmation-attempt-1` before running the workflow. Supply that same value and unchanged call inputs when retrying or rerunning the event. Store `order-8472-confirmation-attempt-2` only after deciding to place a second call.
+In Dify, bind **Idempotency Key** to an upstream field saved with the call request, such as `call_request_id`. The value can be a UUID generated once by your upstream application; it does not have to be an order number or something a user types. Save it before invoking CALL-E and keep it when retrying the node or rerunning the same business event. Generate a new value only for an intentionally new call.
 
-The API requires this key to prevent duplicate calls. The plugin cannot distinguish a retry from an intended second call using the phone number and task alone. Do not use one fixed key for all calls or generate a new key on each workflow execution. Missing or invalid keys stop locally without sending a CALL-E request; fill in the node's key before submitting.
+For order 8472's first confirmation call, a saved value such as `order-8472-confirmation-attempt-1` works. Supply that same value and unchanged call inputs on retries. Use `order-8472-confirmation-attempt-2` only after deciding to place a second call. Do not use one fixed key for all calls or generate a fresh UUID on each workflow execution. Missing or invalid keys stop locally without sending a CALL-E request.
+
+Dify provides [plugin KV storage](https://docs.dify.ai/en/develop-plugin/features-and-specs/plugin-types/persistent-storage-kv), but its tool context does not provide a durable logical-call identifier across separate Workflow runs. A plugin session ID changes per invocation, and an app or conversation ID can cover multiple calls. Storage alone therefore cannot tell the plugin which saved key to reuse. This version requires the upstream identifier rather than guessing from the phone number and task. It does not store or generate keys in plugin KV storage.
 
 See the [migration guide](https://docs.heycall-e.com/migration), [Calls contract](https://docs.heycall-e.com/calls), and [Goal Runs contract](https://docs.heycall-e.com/goal-runs).
 
