@@ -39,6 +39,13 @@ def test_readme_links_source_repository():
     assert "https://github.com/CALLE-AI/call-e-dify-plugin" in readme
 
 
+def test_manifest_declares_marketplace_repository_and_contact():
+    manifest = load_yaml("manifest.yaml")
+
+    assert manifest["repo"] == "https://github.com/CALLE-AI/call-e-dify-plugin"
+    assert manifest["contact"] == "support@heycall-e.com"
+
+
 def test_api_key_onboarding_links_are_user_visible():
     provider = load_yaml("provider/call_e.yaml")
     api_key_help = provider["credentials_for_provider"]["api_key"]["help"]["en_US"]
@@ -57,7 +64,7 @@ def test_release_version_is_synchronized():
     with (ROOT / "pyproject.toml").open("rb") as pyproject_file:
         pyproject = tomllib.load(pyproject_file)
 
-    assert manifest["version"] == "0.2.1"
+    assert manifest["version"] == "0.2.2"
     assert pyproject["project"]["version"] == manifest["version"]
 
 
