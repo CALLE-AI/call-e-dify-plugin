@@ -49,6 +49,23 @@ def test_live_call_requires_both_controls(tool_class, controls, monkeypatch):
 
 
 @pytest.mark.parametrize("tool_class", CREATE_TOOLS)
+@pytest.mark.parametrize("key", [None, " ", "event\n1"])
+def test_invalid_key_reports_local_configuration_error_without_submission(tool_class, key, monkeypatch):
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("An invalid idempotency key must not access the network")
+    monkeypatch.setattr(client.requests, "request", unexpected_request)
+    messages = invoke(tool_class, {
+        **PARAMETERS, "idempotency_key": key, "dry_run": False, "confirm_live_call": True,
+    })
+    result = json_output(messages)
+    assert result["accepted_resource"] is None
+    assert "No CALL-E request was sent" in result["error"]["message"]
+    assert "Idempotency Key" in result["recovery"]
+    assert "saved business event ID" in result["recovery"]
+    assert "uncertain" not in result["recovery"]
+
+
+@pytest.mark.parametrize("tool_class", CREATE_TOOLS)
 def test_exact_replay_uses_the_supplied_key_and_body(tool_class, monkeypatch):
     calls = []
     class Response:

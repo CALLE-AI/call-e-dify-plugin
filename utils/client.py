@@ -509,7 +509,10 @@ def _path_identifier(value: Any, field_name: str) -> str:
 def required_idempotency_key(value: Any) -> str:
     key = str(value or "").strip()
     if not key or len(key) > 255 or any(ord(char) < 32 or ord(char) > 126 for char in key):
-        raise CalleApiError("idempotency_key is required: use 1-255 printable ASCII characters for one business event.")
+        raise CalleApiError(
+            "idempotency_key is required: use 1-255 printable ASCII characters for one business event. "
+            "No CALL-E request was sent."
+        )
     return key
 
 
@@ -521,7 +524,15 @@ def creation_error_result(error: CalleApiError, idempotency_key: str) -> dict[st
             "code": error.error_code, "message": str(error),
             "http_status": error.status_code, "details": error.details,
         },
-        "recovery": "If accepted_resource includes an id, read it with get_call or get_goal_run. Otherwise acceptance may be uncertain. Retry creation only with the original key and unchanged inputs; do not generate a new key.",
+        "recovery": (
+            "Set the tool's Idempotency Key to a saved business event ID, "
+            "for example order-8472-confirmation-attempt-1, then submit. "
+            "Keep this key and the original inputs for retries."
+            if not idempotency_key
+            else "If accepted_resource includes an id, read it with get_call or get_goal_run. "
+            "Otherwise acceptance may be uncertain. Retry creation only with the original key "
+            "and unchanged inputs; do not generate a new key."
+        ),
     }
 
 
