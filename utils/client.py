@@ -206,6 +206,75 @@ def result_schema() -> dict[str, Any]:
     }
 
 
+def parse_result_schema(value: Any) -> dict[str, Any]:
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return result_schema()
+
+    def unique_object(pairs):
+        parsed = dict(pairs)
+        if len(parsed) != len(pairs):
+            raise ValueError("result_schema must not repeat JSON object keys.")
+        return parsed
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value, object_pairs_hook=unique_object)
+        except json.JSONDecodeError as error:
+            raise ValueError("result_schema must be a valid JSON object string.") from error
+    if not isinstance(value, dict):
+        raise ValueError("result_schema must be a JSON object.")
+    root_keywords = {"$schema", "type", "description", "additionalProperties", "properties", "required"}
+    if set(value) - root_keywords:
+        raise ValueError("result_schema contains unsupported root keywords.")
+    if value.get("$schema") not in (None, "https://json-schema.org/draft/2020-12/schema"):
+        raise ValueError("result_schema.$schema must use JSON Schema draft 2020-12.")
+    if value.get("type") != "object" or value.get("additionalProperties") is not False:
+        raise ValueError("result_schema requires type=object and additionalProperties=false.")
+    properties = value.get("properties")
+    if not isinstance(properties, dict) or len(properties) > 32:
+        raise ValueError("result_schema.properties must be an object with at most 32 fields.")
+    required = value.get("required", [])
+    if (
+        not isinstance(required, list)
+        or any(not isinstance(name, str) or name not in properties for name in required)
+        or len(set(required)) != len(required)
+    ):
+        raise ValueError("result_schema.required must list declared field names without duplicates.")
+    for node in [value, *properties.values()]:
+        if not isinstance(node, dict):
+            raise ValueError("Each result_schema property must be a scalar schema object.")
+        description = node.get("description")
+        if description is not None and (not isinstance(description, str) or len(description) > 512):
+            raise ValueError("result_schema descriptions must contain at most 512 characters.")
+    scalar_types = {"string": (str,), "boolean": (bool,), "integer": (int,), "number": (int, float)}
+    for name, schema in properties.items():
+        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name):
+            raise ValueError("result_schema field names must match [a-z][a-z0-9_]{0,63}.")
+        if set(schema) - {"type", "description", "enum"}:
+            raise ValueError(f"result_schema.properties.{name} only supports type, description, and enum.")
+        kind = schema.get("type")
+        if not isinstance(kind, str) or kind not in scalar_types:
+            raise ValueError(f"result_schema.properties.{name} must be string, boolean, integer, or number.")
+        if "enum" in schema:
+            values = schema["enum"]
+            if not isinstance(values, list) or not 1 <= len(values) <= 32:
+                raise ValueError(f"result_schema.properties.{name}.enum must contain 1-32 values.")
+            if any(
+                type(item) not in scalar_types[kind]
+                or (isinstance(item, float) and not math.isfinite(item))
+                or (type(item) is int and abs(item) > 9007199254740991)
+                for item in values
+            ):
+                raise ValueError(f"result_schema.properties.{name}.enum values must match its finite scalar type.")
+            if len(set(values)) != len(values):
+                raise ValueError(f"result_schema.properties.{name}.enum must not contain duplicates.")
+    encoded = json.dumps({key: item for key, item in value.items() if key != "$schema"},
+                         ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > 32768:
+        raise ValueError("result_schema must not exceed 32 KiB of JSON.")
+    return value
+
+
 def build_create_payload(
     *,
     phone_number: str,
@@ -213,11 +282,12 @@ def build_create_payload(
     region: str,
     locale: str,
     metadata: dict[str, Any],
+    schema: Any = None,
 ) -> dict[str, Any]:
     payload = {
         "task": task,
         "phone": validate_e164(phone_number),
-        "result_schema": result_schema(),
+        "result_schema": parse_result_schema(schema),
         "metadata": {**metadata, "source": "dify_call_e_plugin"},
     }
     if region:

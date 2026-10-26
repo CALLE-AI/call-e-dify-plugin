@@ -180,3 +180,68 @@ def test_get_call_emits_v2_fields_as_named_variables(monkeypatch):
     assert variables == json_output(messages)
     assert variables["call_id"] == "call_1" and variables["billing_call_id"] is None
     assert variables["result_status"] == "unavailable" and variables["result"] is None
+
+
+@pytest.mark.parametrize("tool_class", [CreateCallTool, CreateAndWaitTool])
+@pytest.mark.parametrize("live", [False, True])
+def test_invalid_custom_schema_is_rejected_before_any_network_request(tool_class, live, monkeypatch):
+    def unexpected_request(*args, **kwargs):
+        pytest.fail("An invalid result schema must not access the network")
+    monkeypatch.setattr(client.requests, "request", unexpected_request)
+    messages = invoke(tool_class, {**PARAMETERS, "result_schema": '{"type":"object"}',
+                                  "dry_run": not live, "confirm_live_call": live})
+    assert any("result_schema" in message["message"].get("text", "") for message in messages)
+    assert not any(message["type"] == "json" for message in messages)
+
+
+@pytest.mark.parametrize("tool_class", [CreateCallTool, CreateAndWaitTool])
+def test_custom_schema_preview_and_recovery_preserve_the_original_request(tool_class, monkeypatch):
+    schema = {"type": "object", "additionalProperties": False, "properties": {
+        "appointment_status": {"type": "string", "enum": ["confirmed", "unknown"]},
+    }, "required": ["appointment_status"]}
+    parameters = {**PARAMETERS, "result_schema": json.dumps(schema)}
+    preview = json_output(invoke(tool_class, parameters))
+    assert preview["result_schema"] == schema
+    requests = []
+    class Response:
+        status_code = 202
+        text = "{}"
+        def json(self):
+            return {"id": "call_saved", "status": "completed", "call_outcome": "completed",
+                    "result_status": "available", "result": {"appointment_status": "unknown"}, "error": None}
+    def request(method, url, **kwargs):
+        requests.append((method, url, kwargs))
+        if len(requests) == 1:
+            raise client.requests.Timeout("Lost accepted response")
+        return Response()
+    monkeypatch.setattr(client.requests, "request", request)
+    parameters.update(dry_run=False, confirm_live_call=True)
+    uncertain = json_output(invoke(tool_class, parameters))
+    recovered_messages = invoke(tool_class, parameters)
+    recovered = json_output(recovered_messages)
+    assert len(requests) == 2 and requests[0] == requests[1]
+    assert requests[0][2]["json"]["result_schema"] == schema
+    assert uncertain["accepted_resource"] is None
+    assert recovered["call_id"] == "call_saved"
+    assert recovered["result"]["result"] == {"appointment_status": "unknown"}
+    variables = {m["message"]["variable_name"]: m["message"]["variable_value"]
+                 for m in recovered_messages if m["type"] == "variable"}
+    assert variables["result"] == recovered["result"]
+
+
+@pytest.mark.parametrize("result,status,outcome", [
+    ({"appointment_status": "unknown", "accepted": False, "party_size": 0}, "available", "completed"),
+    ({}, "available", "completed"),
+    (None, "unavailable", "no_answer"),
+])
+def test_get_call_preserves_custom_fields_and_unavailable_results(result, status, outcome, monkeypatch):
+    from tools.get_call import GetCallTool
+
+    monkeypatch.setattr(client.CalleClient, "get_call", lambda *a: {
+        "id": "call_1", "status": "completed", "call_outcome": outcome,
+        "result_status": status, "result": result, "error": None,
+    })
+    output = json_output(invoke(GetCallTool, {"call_id": "call_1"}))
+    assert output["result"] == output["structured_result"] == result
+    assert output["result_status"] == status and output["call_outcome"] == outcome
+    assert output["error"] is None and output["summary"] is None

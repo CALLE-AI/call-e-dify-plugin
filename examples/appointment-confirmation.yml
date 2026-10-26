@@ -1,0 +1,151 @@
+app:
+  name: CALL-E appointment confirmation
+  description: Confirm an appointment using custom result fields. Starts in dry run mode.
+  mode: workflow
+  icon: telephone_receiver
+  icon_type: emoji
+  icon_background: '#E8F0FE'
+dependencies: []
+kind: app
+version: 0.7.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features: {}
+  graph:
+    edges:
+      - {id: start-call, source: start, sourceHandle: source, target: call, targetHandle: target, type: custom, data: {sourceType: start, targetType: tool}}
+      - {id: call-fields, source: call, sourceHandle: source, target: fields, targetHandle: target, type: custom, data: {sourceType: tool, targetType: code}}
+      - {id: fields-route, source: fields, sourceHandle: source, target: route, targetHandle: target, type: custom, data: {sourceType: code, targetType: if-else}}
+      - {id: route-confirmed, source: route, sourceHandle: confirmed, target: confirmed, targetHandle: target, type: custom, data: {sourceType: if-else, targetType: end}}
+      - {id: route-reschedule, source: route, sourceHandle: reschedule_requested, target: reschedule, targetHandle: target, type: custom, data: {sourceType: if-else, targetType: end}}
+      - {id: route-review, source: route, sourceHandle: 'false', target: review, targetHandle: target, type: custom, data: {sourceType: if-else, targetType: end}}
+    nodes:
+      - id: start
+        type: custom
+        position: {x: 0, y: 160}
+        data:
+          type: start
+          title: Saved appointment request
+          variables:
+            - {variable: phone_number, label: Authorized phone number, type: text-input, required: true, max_length: 16}
+            - {variable: appointment_time, label: Appointment time, type: text-input, required: true, max_length: 200}
+            - {variable: call_request_id, label: Saved call request ID, type: text-input, required: true, max_length: 255}
+      - id: call
+        type: custom
+        position: {x: 300, y: 160}
+        data:
+          type: tool
+          title: Confirm appointment
+          provider_type: builtin
+          provider_id: derekwang2002/call_e/call_e
+          provider_name: derekwang2002/call_e/call_e
+          provider_show_name: CALL-E
+          plugin_id: derekwang2002/call_e
+          tool_name: create_and_wait
+          tool_label: Create And Wait For CALL-E Call
+          tool_node_version: '2'
+          tool_configurations: {}
+          tool_parameters:
+            phone_number: {type: mixed, value: '{{#start.phone_number#}}'}
+            idempotency_key: {type: mixed, value: '{{#start.call_request_id#}}'}
+            dry_run: {type: constant, value: true}
+            confirm_live_call: {type: constant, value: false}
+            task:
+              type: mixed
+              value: >-
+                Speak English. Ask whether the recipient confirms the appointment for
+                {{#start.appointment_time#}}. Report appointment_status=confirmed only
+                after an explicit confirmation of that appointment. If they request a
+                different time, report reschedule_requested and ask for preferred_time;
+                do not book or promise a new appointment. If they do not answer clearly,
+                are not the intended recipient, or the call does not establish their
+                decision, report unknown. Set preferred_time to unknown unless they
+                explicitly provide a different time. Thank them and end politely.
+            result_schema:
+              type: mixed
+              value: >-
+                {"type":"object","additionalProperties":false,"required":["appointment_status","preferred_time"],"properties":{"appointment_status":{"type":"string","enum":["confirmed","reschedule_requested","unknown"],"description":"The recipient's explicit decision; unknown when it was not established."},"preferred_time":{"type":"string","description":"Requested alternative time, or unknown when none was provided."}}}
+            poll_interval_seconds: {type: constant, value: 5}
+            wait_timeout_minutes: {type: constant, value: 4}
+      - id: fields
+        type: custom
+        position: {x: 600, y: 160}
+        data:
+          type: code
+          title: Read appointment fields
+          code_language: python3
+          variables:
+            - {variable: tool_output, value_selector: [call, json]}
+          outputs:
+            route: {type: string, children: null}
+            appointment_status: {type: string, children: null}
+            preferred_time: {type: string, children: null}
+          code: |
+            def main(tool_output: list) -> dict:
+                envelope = tool_output[0] if tool_output and isinstance(tool_output[0], dict) else {}
+                call = envelope.get("result")
+                call = call if isinstance(call, dict) else {}
+                result = call.get("result")
+                result = result if isinstance(result, dict) else {}
+                status = result.get("appointment_status", "unknown")
+                if status not in ("confirmed", "reschedule_requested", "unknown"):
+                    status = "unknown"
+                preferred_time = result.get("preferred_time", "unknown")
+                if not isinstance(preferred_time, str) or not preferred_time.strip():
+                    preferred_time = "unknown"
+                ready = (
+                    call.get("result_status") == "available"
+                    and call.get("call_outcome") == "completed"
+                    and call.get("error") is None
+                )
+                route = status if ready and status != "unknown" else "manual_review"
+                return {"route": route, "appointment_status": status, "preferred_time": preferred_time}
+      - id: route
+        type: custom
+        position: {x: 900, y: 160}
+        data:
+          type: if-else
+          title: Appointment decision
+          cases:
+            - case_id: confirmed
+              logical_operator: and
+              conditions:
+                - {id: is-confirmed, variable_selector: [fields, route], varType: string, comparison_operator: is, value: confirmed}
+            - case_id: reschedule_requested
+              logical_operator: and
+              conditions:
+                - {id: is-reschedule, variable_selector: [fields, route], varType: string, comparison_operator: is, value: reschedule_requested}
+      - id: confirmed
+        type: custom
+        position: {x: 1200, y: 0}
+        data:
+          type: end
+          title: Confirmed
+          outputs:
+            - {variable: route, value_selector: [fields, route], value_type: string}
+            - {variable: appointment_status, value_selector: [fields, appointment_status], value_type: string}
+            - {variable: preferred_time, value_selector: [fields, preferred_time], value_type: string}
+            - {variable: call_response, value_selector: [call, json], value_type: 'array[object]'}
+      - id: reschedule
+        type: custom
+        position: {x: 1200, y: 160}
+        data:
+          type: end
+          title: Reschedule requested
+          outputs:
+            - {variable: route, value_selector: [fields, route], value_type: string}
+            - {variable: appointment_status, value_selector: [fields, appointment_status], value_type: string}
+            - {variable: preferred_time, value_selector: [fields, preferred_time], value_type: string}
+            - {variable: call_response, value_selector: [call, json], value_type: 'array[object]'}
+      - id: review
+        type: custom
+        position: {x: 1200, y: 320}
+        data:
+          type: end
+          title: Manual review
+          outputs:
+            - {variable: route, value_selector: [fields, route], value_type: string}
+            - {variable: appointment_status, value_selector: [fields, appointment_status], value_type: string}
+            - {variable: preferred_time, value_selector: [fields, preferred_time], value_type: string}
+            - {variable: call_response, value_selector: [call, json], value_type: 'array[object]'}

@@ -73,6 +73,15 @@ parameters:
     human_description:
       en_US: Optional spoken language. CALL-E infers it from the task when omitted.
     llm_description: Optional locale hint, for example en-US or pt-BR. Omit to infer from the task.
+  - name: result_schema
+    type: string
+    required: false
+    form: llm
+    label:
+      en_US: Result Schema JSON
+    human_description:
+      en_US: Optional closed JSON Schema object with up to 32 scalar fields. Leave blank for the default result fields.
+    llm_description: Optional JSON object with type=object and additionalProperties=false. Fields support string, boolean, integer, or number, with description and enum. Use an explicit unknown value when appropriate. Preserve this schema and all other inputs on retries.
   - name: metadata_json
     type: string
     required: false
@@ -131,3 +140,25 @@ output_schema:
           type: string
         summary:
           type: [string, "null"]
+        call_outcome:
+          type: [string, "null"]
+        error:
+          type: [object, "null"]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        result:
+          type: [object, "null"]
+          description: Business fields from the requested result schema, or null when unavailable.
+          additionalProperties: true
+          properties:
+            summary:
+              type: string
+            call_completed:
+              type: string
+            outcome:
+              type: string
+            next_action:
+              type: string
