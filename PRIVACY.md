@@ -18,7 +18,7 @@ The plugin does not intentionally send Dify API keys, Dify workspace secrets, or
 
 CALL-E may return call status, recipient status, attempt status, transcript turns, summaries, structured results, evidence, metadata, and raw call result fields.
 
-The plugin masks phone numbers in text and JSON responses before returning data to Dify.
+The plugin masks destination phone fields and phone fields in metadata and error details before returning data to Dify. Call business results retain their original values and types, including phone-named fields, in `result`, `structured_result`, and `raw_call_result.result`. Results, summaries, and transcript text may contain personal data and are not anonymized.
 
 ## Storage
 

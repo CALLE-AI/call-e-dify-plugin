@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 
 from utils import client
@@ -36,6 +38,41 @@ def test_validate_e164_rejects_local_number():
 
 def test_mask_phone_hides_middle_digits():
     assert mask_phone("+15555550123") == "+15****23"
+
+
+def test_parse_call_result_preserves_business_values_and_masks_envelope_phones():
+    result = {
+        "phone_number_confirmed": False,
+        "phone_number_attempts": 0,
+        "phone": "unknown",
+        "callback_phone_number": "+15555550123",
+    }
+    call = {
+        "id": "call_1",
+        "phone": "+15555550123",
+        "result": result,
+        "metadata": {"phone_number": "+15555550123"},
+        "error": {"details": {"phone": "+15555550123"}},
+    }
+    original = deepcopy(call)
+
+    parsed = parse_call_result(call)
+
+    assert parsed["result"] == result
+    assert parsed["structured_result"] == result
+    assert parsed["raw_call_result"]["result"] == result
+    assert parsed["raw_call_result"]["phone"] == "+15****23"
+    assert parsed["metadata_returned"]["phone_number"] == "+15****23"
+    assert parsed["error"]["details"]["phone"] == "+15****23"
+    assert call == original
+
+
+def test_parse_call_result_keeps_missing_raw_result_absent():
+    parsed = parse_call_result({"id": "call_1"})
+
+    assert parsed["result"] is None
+    assert parsed["structured_result"] is None
+    assert "result" not in parsed["raw_call_result"]
 
 
 def test_parse_json_object_requires_object():

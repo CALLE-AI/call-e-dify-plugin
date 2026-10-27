@@ -6,7 +6,7 @@ __pycache__/
 .DS_Store
 .env
 *.difypkg
-.git/
+.git
 .gitignore
 .difyignore
 *.egg-info/

@@ -128,7 +128,7 @@ See the [migration guide](https://docs.heycall-e.com/migration), [Calls contract
 
 - Requires E.164 destination phone numbers, for example `+15555550123`.
 - Rejects common placeholder numbers for live calls.
-- Masks phone numbers in text and JSON responses.
+- Masks destination phone fields and phone fields in metadata and error details. Call business results retain their original values and types; results and transcript text may contain personal data.
 - Does not create recurring schedules.
 - Does not expose API keys in logs or responses.
 - Defaults to `dry_run=true`.

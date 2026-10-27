@@ -310,6 +310,9 @@ def parse_call_result(call: dict[str, Any], *, metadata_sent: dict[str, Any] | N
     metadata_sent = metadata_sent or {}
     metadata_keys = sorted(metadata_sent)
     missing_or_different = [key for key in metadata_keys if metadata_sent.get(key) != metadata_returned.get(key)]
+    raw_call_result = redact_phone_fields(call)
+    if "result" in call:
+        raw_call_result["result"] = structured_result
 
     return {
         "id": extract_call_id(call),
@@ -333,9 +336,9 @@ def parse_call_result(call: dict[str, Any], *, metadata_sent: dict[str, Any] | N
         },
         "summary": as_object(structured_result).get("summary"),
         "transcript": redact_phone_fields(as_list(call.get("transcript"))),
-        "result": redact_phone_fields(structured_result),
-        "structured_result": redact_phone_fields(structured_result),
-        "raw_call_result": redact_phone_fields(call),
+        "result": structured_result,
+        "structured_result": structured_result,
+        "raw_call_result": raw_call_result,
     }
 
 
