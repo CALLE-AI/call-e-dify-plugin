@@ -1,0 +1,203 @@
+app:
+  name: CALL-E reviewed Goal Run
+  description: Map a saved business record, validate a reviewed Goal interface, and run only when ready. Starts in dry run mode.
+  mode: workflow
+  icon: telephone_receiver
+  icon_type: emoji
+  icon_background: '#E8F0FE'
+dependencies: []
+kind: app
+version: 0.7.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features: {}
+  graph:
+    edges:
+      - {id: start-map, source: start, sourceHandle: source, target: map, targetHandle: target, type: custom, data: {sourceType: start, targetType: code}}
+      - {id: map-prepare, source: map, sourceHandle: source, target: prepare, targetHandle: target, type: custom, data: {sourceType: code, targetType: tool}}
+      - {id: prepare-gate, source: prepare, sourceHandle: source, target: gate, targetHandle: target, type: custom, data: {sourceType: tool, targetType: if-else}}
+      - {id: gate-run, source: gate, sourceHandle: ready, target: run, targetHandle: target, type: custom, data: {sourceType: if-else, targetType: tool}}
+      - {id: gate-attention, source: gate, sourceHandle: 'false', target: attention, targetHandle: target, type: custom, data: {sourceType: if-else, targetType: end}}
+      - {id: run-inspect, source: run, sourceHandle: source, target: inspect, targetHandle: target, type: custom, data: {sourceType: tool, targetType: code}}
+      - {id: inspect-end, source: inspect, sourceHandle: source, target: end, targetHandle: target, type: custom, data: {sourceType: code, targetType: end}}
+    nodes:
+      - id: start
+        type: custom
+        position: {x: 0, y: 160}
+        data:
+          type: start
+          title: Saved business event
+          variables:
+            - variable: business_record
+              label: Saved business record JSON
+              type: paragraph
+              required: true
+              max_length: 10000
+              default: '{"reference":"ORDER-8472","phone_number":"+14155550123","event_id":"order-8472:confirm:1"}'
+      - id: map
+        type: custom
+        position: {x: 300, y: 160}
+        data:
+          type: code
+          title: Map business fields
+          code_language: python3
+          variables:
+            - {variable: business_record, value_selector: [start, business_record]}
+          outputs:
+            variables_json: {type: string, children: null}
+            phone_number: {type: string, children: null}
+            idempotency_key: {type: string, children: null}
+          code: |
+            import json
+
+            def main(business_record: str) -> dict:
+                record = json.loads(business_record)
+                if not isinstance(record, dict):
+                    raise ValueError("Business record must be a JSON object.")
+                for field in ("reference", "phone_number", "event_id"):
+                    if not isinstance(record.get(field), str) or not record[field].strip():
+                        raise ValueError("Business record requires a non-empty " + field + ".")
+                return {
+                    "variables_json": json.dumps({"test_reference": record["reference"]}, sort_keys=True),
+                    "phone_number": record["phone_number"],
+                    "idempotency_key": record["event_id"],
+                }
+      - id: prepare
+        type: custom
+        position: {x: 600, y: 160}
+        data:
+          type: tool
+          title: Review and validate Goal inputs
+          provider_type: builtin
+          provider_id: derekwang2002/call_e/call_e
+          provider_name: derekwang2002/call_e/call_e
+          provider_show_name: CALL-E
+          plugin_id: derekwang2002/call_e
+          tool_name: prepare_goal_run
+          tool_label: Prepare CALL-E Goal Run
+          tool_node_version: '2'
+          tool_configurations:
+            goal_id: {type: constant, value: ''}
+            reviewed_goal_json: {type: constant, value: ''}
+          tool_parameters:
+            variables_json: {type: variable, value: [map, variables_json]}
+      - id: gate
+        type: custom
+        position: {x: 900, y: 160}
+        data:
+          type: if-else
+          title: Configuration ready?
+          cases:
+            - case_id: ready
+              logical_operator: and
+              conditions:
+                - {id: configuration-ready, variable_selector: [prepare, ready], varType: boolean, comparison_operator: is, value: true}
+      - id: run
+        type: custom
+        position: {x: 1200, y: 0}
+        data:
+          type: tool
+          title: Execute reviewed Goal
+          provider_type: builtin
+          provider_id: derekwang2002/call_e/call_e
+          provider_name: derekwang2002/call_e/call_e
+          provider_show_name: CALL-E
+          plugin_id: derekwang2002/call_e
+          tool_name: create_goal_run_and_wait
+          tool_label: Create And Wait For CALL-E Goal Run
+          tool_node_version: '2'
+          tool_configurations: {}
+          tool_parameters:
+            goal_id: {type: variable, value: [prepare, goal_id]}
+            variables_json: {type: variable, value: [prepare, variables_json]}
+            phone_number: {type: variable, value: [map, phone_number]}
+            idempotency_key: {type: variable, value: [map, idempotency_key]}
+            dry_run: {type: constant, value: true}
+            confirm_live_call: {type: constant, value: false}
+            poll_interval_seconds: {type: constant, value: 5}
+            wait_timeout_minutes: {type: constant, value: 4}
+      - id: inspect
+        type: custom
+        position: {x: 1500, y: 0}
+        data:
+          type: code
+          title: Check accepted version and result
+          code_language: python3
+          variables:
+            - {variable: tool_output, value_selector: [run, json]}
+            - {variable: expected_id, value_selector: [prepare, run_spec_id]}
+            - {variable: expected_version, value_selector: [prepare, run_spec_version]}
+          outputs:
+            route: {type: string, children: null}
+            goal_run_id: {type: string, children: null}
+            business_result_json: {type: string, children: null}
+            error_json: {type: string, children: null}
+          code: |
+            import json
+
+            def main(tool_output: list, expected_id: str, expected_version: int) -> dict:
+                envelope = tool_output[0] if tool_output and isinstance(tool_output[0], dict) else {}
+                resource = envelope.get("goal_run")
+                if not isinstance(resource, dict):
+                    resource = envelope.get("accepted_resource")
+                resource = resource if isinstance(resource, dict) else {}
+                goal_run_id = envelope.get("goal_run_id") or resource.get("id") or ""
+                error = envelope.get("error")
+                if error is None:
+                    error = resource.get("error")
+                result = resource.get("result")
+                route = "manual_review"
+                if not goal_run_id and envelope.get("dry_run") is True and error is None:
+                    route = "preview"
+                elif goal_run_id:
+                    spec = resource.get("run_spec")
+                    same_version = (
+                        isinstance(spec, dict)
+                        and spec.get("id") == expected_id
+                        and type(spec.get("version")) is int
+                        and spec["version"] == expected_version
+                    )
+                    if not same_version:
+                        route = "interface_changed_after_acceptance"
+                    elif (
+                        resource.get("object") == "goal_run"
+                        and resource.get("result_status") == "available"
+                        and resource.get("call_outcome") == "completed"
+                        and error is None
+                        and not envelope.get("timed_out")
+                        and isinstance(result, dict)
+                        and result.get("confirmed") == "yes"
+                    ):
+                        route = "confirmed"
+                return {
+                    "route": route,
+                    "goal_run_id": goal_run_id,
+                    "business_result_json": json.dumps(result, ensure_ascii=False),
+                    "error_json": json.dumps(error, ensure_ascii=False),
+                }
+      - id: attention
+        type: custom
+        position: {x: 1200, y: 320}
+        data:
+          type: end
+          title: Review configuration
+          outputs:
+            - {variable: ready, value_selector: [prepare, ready], value_type: boolean}
+            - {variable: configuration_report, value_selector: [prepare, report], value_type: string}
+            - {variable: validation_errors, value_selector: [prepare, errors], value_type: 'array[object]'}
+            - {variable: interface_changes, value_selector: [prepare, changes], value_type: 'array[object]'}
+            - {variable: current_goal_json, value_selector: [prepare, goal_json], value_type: string}
+      - id: end
+        type: custom
+        position: {x: 1800, y: 0}
+        data:
+          type: end
+          title: Goal Run outcome
+          outputs:
+            - {variable: route, value_selector: [inspect, route], value_type: string}
+            - {variable: goal_run_id, value_selector: [inspect, goal_run_id], value_type: string}
+            - {variable: business_result_json, value_selector: [inspect, business_result_json], value_type: string}
+            - {variable: error_json, value_selector: [inspect, error_json], value_type: string}
+            - {variable: idempotency_key, value_selector: [map, idempotency_key], value_type: string}
+            - {variable: response, value_selector: [run, json], value_type: 'array[object]'}
