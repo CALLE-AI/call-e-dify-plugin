@@ -45,6 +45,7 @@ class CreateCallTool(Tool):
                 region=region,
                 locale=locale,
                 metadata=metadata,
+                schema=tool_parameters.get("result_schema"),
             )
             preview = {
                 "dry_run": dry_run,
@@ -56,6 +57,7 @@ class CreateCallTool(Tool):
                 "locale": locale,
                 "task": task,
                 "metadata": redact_phone_fields(payload["metadata"]),
+                "result_schema": payload["result_schema"],
             }
 
             if dry_run or not confirm_live_call:

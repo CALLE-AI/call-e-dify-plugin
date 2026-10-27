@@ -55,7 +55,7 @@ Otherwise it returns a preview with the phone number masked.
 
 Both Call creation tools require a business-stable `idempotency_key` of 1-255 printable ASCII characters, such as `order-8472-confirmation-attempt-1`. Save it with the original inputs before invoking the tool. Retrying the same key and unchanged inputs recovers the same Call; a new key means a new call. The plugin does not generate keys or retry creation automatically.
 
-The plugin sends one top-level `phone` to `POST /v2/calls` with a closed, flat scalar `result_schema`. The built-in schema requests `call_completed`, `outcome`, `summary`, and `next_action`, with optional observation fields. Include missing-answer rules in the task consistent with these fields. Leave `region` and `locale` blank for API inference, and keep them blank on replay even when the response includes inferred values.
+The plugin sends one top-level `phone` to `POST /v2/calls` with a closed, flat scalar `result_schema`. Leave **Result Schema JSON** blank to keep the built-in fields: `call_completed`, `outcome`, `summary`, and `next_action`, with optional observation fields. Both `create_call` and `create_and_wait` accept a custom schema instead. Include missing-answer rules in the task consistent with the requested fields. Leave `region` and `locale` blank for API inference, and keep them blank on replay even when the response includes inferred values.
 
 `live_call_created=true` reports an accepted resource, including an exact replay. It does not prove a new dial or a successful connection. HTTP creation errors return `error.code`, `error.message`, `error.details`, and the supplied key for recovery.
 
@@ -72,6 +72,29 @@ For existing Dify variable mappings, this plugin keeps `call_id` as the **API re
 Creates one call, then polls while `result_status=pending`. The waiter stops for `available`, `unavailable`, and `not_applicable`. A completed telephone execution can still have a pending result. A final unavailable result can have both `result=null` and `error=null`; it must not trigger an automatic redial.
 
 A wait timeout returns `timed_out=true`, the same `call_id`, and the supplied key. A polling error returns `accepted_resource` with the last saved ID; use `get_call` to resume. A network failure during creation can leave acceptance uncertain: retry only the original key and unchanged inputs. An expired Dify host execution also does not cancel the call. Set the host's plugin execution timeout to cover the requested wait, or use `create_call` followed by `get_call` in later workflow steps.
+
+### Custom result fields
+
+Enter a JSON Schema object in **Result Schema JSON**. It replaces the built-in schema; the plugin does not add default business fields. Existing workflows that omit this input keep their current request and output paths.
+
+The schema must have `type: "object"`, `additionalProperties: false`, and at most 32 flat fields. Each field supports `string`, `boolean`, `integer`, or `number`, an optional `description`, and an optional `enum`. Field names must match `[a-z][a-z0-9_]{0,63}`. `required` may list declared fields. Descriptions have a 512-character limit, enums allow 1–32 distinct values of the field's type, and the schema has a 32 KiB JSON limit. Nested objects, arrays, nullable fields, references, and other validation keywords are unsupported. Invalid schemas stop locally before any CALL-E request, including in dry run mode.
+
+For unanswered questions, use an explicit value such as `unknown` and explain it in the task. Do not use a boolean when you need to distinguish “no” from “unknown.” Save the schema with the original task, phone, optional inputs, and idempotency key. Replays must use that same request; editing the schema under an existing key is not a retry.
+
+Business fields remain in the returned result object, including `false`, `0`, `{}`, and `null`:
+
+| Tool | Business fields | Readiness and telephone outcome |
+| --- | --- | --- |
+| `create_call`, `create_and_wait` | `result.result` | `result.result_status`, `result.call_outcome`, `result.error` |
+| `get_call` | `result` (also `structured_result`) | `result_status`, `call_outcome`, `error` |
+
+In Dify, bind the result object to a Code node to read a custom key. The variable picker lists the built-in fields; custom names are not added to it automatically. The complete `json` output is an array containing the tool response. A `completed` telephone outcome or an `available` result alone does not mean the recipient confirmed anything. Require the explicit business value as well. Keep empty, unavailable, and unknown answers in a separate branch.
+
+#### Appointment confirmation example
+
+Import [appointment-confirmation.yml](examples/appointment-confirmation.yml) into Dify after installing this plugin and configuring its credentials. The workflow requests `appointment_status` and `preferred_time`, reads those fields in a Code node, and uses an If/Else node to select **Confirmed**, **Reschedule requested**, or **Manual review**. It does not interpret the call summary with another model or book a replacement appointment.
+
+The example starts in dry run mode. Supply `phone_number`, `appointment_time`, and a `call_request_id` saved by your upstream application. Inspect the preview, then set the tool's `dry_run=false` and `confirm_live_call=true` only for an authorized recipient. Preserve these inputs and the schema when rerunning that same business event. If waiting times out, retain `call_id` and resume with `get_call`; do not create a replacement call.
 
 ### Goal tools
 
@@ -105,7 +128,7 @@ See the [migration guide](https://docs.heycall-e.com/migration), [Calls contract
 
 - Requires E.164 destination phone numbers, for example `+15555550123`.
 - Rejects common placeholder numbers for live calls.
-- Masks phone numbers in text and JSON responses.
+- Masks destination phone fields and phone fields in metadata and error details. Call business results retain their original values and types; results and transcript text may contain personal data.
 - Does not create recurring schedules.
 - Does not expose API keys in logs or responses.
 - Defaults to `dry_run=true`.

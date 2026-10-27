@@ -46,6 +46,8 @@ output_schema:
       type: array
     structured_result: &business_result
       type: [object, "null"]
+      description: Business fields from the requested result schema, or null when unavailable.
+      additionalProperties: true
       properties:
         summary:
           type: string

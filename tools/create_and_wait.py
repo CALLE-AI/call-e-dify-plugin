@@ -59,6 +59,7 @@ class CreateAndWaitTool(Tool):
                 region=region,
                 locale=locale,
                 metadata=metadata,
+                schema=tool_parameters.get("result_schema"),
             )
             preview = {
                 "dry_run": dry_run,
@@ -70,6 +71,7 @@ class CreateAndWaitTool(Tool):
                 "locale": locale,
                 "task": task,
                 "metadata": redact_phone_fields(payload["metadata"]),
+                "result_schema": payload["result_schema"],
                 "poll_interval_seconds": poll_interval_seconds,
                 "wait_timeout_minutes": wait_timeout_minutes,
             }
