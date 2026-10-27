@@ -12,6 +12,7 @@ This plugin exposes safe outbound phone-call tools for CALL-E:
 - `get_call` fetches one CALL-E call result by call ID.
 - `create_and_wait` previews or creates one outbound CALL-E call, then waits for a final result or timeout.
 - `list_goals` and `get_goal` read published CALL-E Goals without starting a call.
+- `prepare_goal_run` selects a published Goal, describes its fields, and validates a reviewed business mapping without starting a call.
 - `create_goal_run`, `get_goal_run`, and `create_goal_run_and_wait` execute and monitor one phone-specific published Goal.
 
 Phone calls are real-world side effects. Live calls require both `dry_run=false` and `confirm_live_call=true`.
@@ -105,6 +106,29 @@ The example starts in dry run mode. Supply `phone_number`, `appointment_time`, a
 `create_goal_run_and_wait` uses the same `result_status` readiness rule as Calls and returns the transcript independently of result availability. A timeout does not cancel the Run: use `get_goal_run` with the returned `goal_run_id`. Polling errors retain the accepted resource; uncertain creation requires an exact replay with the original key.
 
 Goal Run tools follow the same live-call boundary as Call tools: live execution requires both `dry_run=false` and `confirm_live_call=true`.
+
+#### Configure and review a Goal Run
+
+Add **Prepare CALL-E Goal Run** before a creation tool. Its **Published Goal** selector lists the authenticated owner's executable Goals by title, published version, and stable Goal ID. It reads the existing Goal APIs, including every catalog page.
+
+1. Choose the intended Goal and run this read-only node once. The output describes input and result fields, required flags, types, enum options, defaults, and the immutable published RunSpec ID and version.
+2. Review those fields, then copy the node's `goal_json` output into its **Reviewed Goal interface** configuration field. Save this value with the workflow. Keep it fixed across business events until you review another publication.
+3. Map upstream business data into **Mapped business variables JSON**. Bind a Code node's output instead of assembling a JSON string in a prompt. Preparation merges the published defaults and checks missing, unknown, wrongly typed, and invalid enum values. Boolean `false`, integer `0`, and other business values keep their types.
+4. Gate the creation node on `ready=true`. Bind its Goal ID and Variables JSON to the preparation node's `goal_id` and `variables_json` outputs. These routing outputs are empty when preparation fails. The `errors` and `changes` outputs identify fields needing attention.
+
+Preparation checks the current interface against the saved one, including result mappings. A new publication or changed field requirement stops this path until the operator reviews and updates the saved interface. Unsupported API/schema shapes also stop preparation with a field-level error. Keep the reviewed interface in configuration; binding it to the current `get_goal` response on every run would silently approve changes.
+
+The API chooses the RunSpec at acceptance. A read-only preflight is not an atomic version selector: publishing between preparation and creation can still change the accepted version. Compare the returned Run's `run_spec` with the prepared ID and version before acting on its result. Retain the accepted Run ID when they differ; do not redial.
+
+For recovery, retain the original business event, prepared variables, phone, and idempotency key before submission. If creation was uncertain, replay that exact saved request through the existing **Create CALL-E Goal Run** tool, which does not depend on the current Goal interface. If the Run ID is known, resume with **Get CALL-E Goal Run**. A failed configuration check for a new event is not a reason to change a saved recovery key.
+
+#### Business-field mapping example
+
+Import [goal-run-configuration.yml](examples/goal-run-configuration.yml) after installing this plugin and configuring its credentials. The example maps a saved record's `reference` to the published Goal's `test_reference` input, and its saved `event_id` to the idempotency key. Use a published integration-test Goal whose required input is a string `test_reference` and whose nullable `confirmed` result is `yes`, `no`, or `unknown`. For another Goal, edit the **Map business fields** and **Check accepted version and result** Code nodes to match the fields shown by preparation.
+
+Select that Goal in **Review and validate Goal inputs**, run the workflow, review the returned field report, and save its `current_goal_json` in **Reviewed Goal interface**. Supply an owned or explicitly authorized E.164 phone number in `business_record.phone_number`. The placeholder number is blocked for live calls. Keep the record and event ID unchanged for replay. Only after inspecting the preview, change **Execute reviewed Goal** to `dry_run=false` and `confirm_live_call=true` for one authorized test.
+
+The example gates creation on valid configuration, checks the accepted RunSpec again, and returns `confirmed` only for explicit `result.confirmed=yes` with an available result, completed telephone outcome, no error, and no timeout. Empty, unavailable, unknown, and changed-interface results remain for manual review. Preparation and its field selector never place a call. Mapped variables and Run outputs may contain personal data; restrict access to workflow runs and downstream consumers.
 
 ## Upgrade from 0.1.x
 

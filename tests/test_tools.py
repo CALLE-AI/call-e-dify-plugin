@@ -31,9 +31,9 @@ def json_output(messages):
     return next(message["message"]["json_object"] for message in messages if message["type"] == "json")
 
 
-def test_dify_registers_all_eight_tools():
+def test_dify_registers_all_nine_tools():
     registration = PluginRegistration(DifyPluginEnv())
-    assert len(registration.tools_mapping["call_e"][2]) == 8
+    assert len(registration.tools_mapping["call_e"][2]) == 9
 
 
 @pytest.mark.parametrize("tool_class", CREATE_TOOLS)

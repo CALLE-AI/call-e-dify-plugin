@@ -1,0 +1,94 @@
+identity:
+  name: prepare_goal_run
+  author: derekwang2002
+  label:
+    en_US: Prepare CALL-E Goal Run
+description:
+  human:
+    en_US: Choose a published Goal, review its fields and version, and validate mapped variables without creating a call.
+  llm: Read-only Goal configuration check. Use ready to gate creation, then bind goal_id and variables_json to the existing Goal Run tool. Keep the reviewed interface fixed until an operator reviews a new publication.
+parameters:
+  - name: goal_id
+    type: dynamic-select
+    required: true
+    form: form
+    label:
+      en_US: Published Goal
+    human_description:
+      en_US: Choose the intended Goal by title, current version, and ID. Refresh the selector after publishing a Goal.
+  - name: reviewed_goal_json
+    type: string
+    required: false
+    form: form
+    label:
+      en_US: Reviewed Goal interface
+    human_description:
+      en_US: Run this read-only node once to inspect the fields, then copy its goal_json output here. Keep it saved in workflow configuration; do not replace it automatically on each run.
+  - name: variables_json
+    type: string
+    required: false
+    form: llm
+    label:
+      en_US: Mapped business variables JSON
+    human_description:
+      en_US: Bind a Code node's JSON object string containing business fields declared by the selected Goal. Defaults come from the reviewed published input schema.
+extra:
+  python:
+    source: tools/prepare_goal_run.py
+output_schema:
+  type: object
+  properties:
+    ready:
+      type: boolean
+    goal_id:
+      type: string
+    run_spec_id:
+      type: string
+    run_spec_version:
+      type: number
+    goal_json:
+      type: string
+    variables_json:
+      type: string
+    report:
+      type: string
+    input_fields:
+      type: array
+      items: &field
+        type: object
+        properties:
+          name:
+            type: string
+          type:
+            type: string
+          required:
+            type: boolean
+          description:
+            type: string
+          default_json:
+            type: string
+          enum_json:
+            type: string
+    result_fields:
+      type: array
+      items: *field
+    errors:
+      type: array
+      items:
+        type: object
+        properties:
+          code:
+            type: string
+          path:
+            type: string
+          message:
+            type: string
+    changes:
+      type: array
+      items:
+        type: object
+        properties:
+          path:
+            type: string
+          message:
+            type: string

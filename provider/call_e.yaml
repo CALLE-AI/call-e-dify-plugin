@@ -38,6 +38,7 @@ tools:
   - tools/create_and_wait.yaml
   - tools/list_goals.yaml
   - tools/get_goal.yaml
+  - tools/prepare_goal_run.yaml
   - tools/create_goal_run.yaml
   - tools/get_goal_run.yaml
   - tools/create_goal_run_and_wait.yaml
